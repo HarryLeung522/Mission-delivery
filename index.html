@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pi任務發起區</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background-color: #f4f7f6; color: #333; margin: 0;}
+    .container { max-width: 600px; margin: 0 auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    h2 { text-align: center; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;}
+    .row { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+    .col { flex: 1; min-width: 140px; }
+    label { font-weight: 600; display: block; margin-bottom: 5px; font-size: 14px; color: #444; }
+    input[type="text"], select, input[type="file"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px;}
+    .checkbox-container { display: flex; align-items: center; margin-top: 20px; margin-bottom: 20px; background: #e8f8f5; padding: 10px; border-radius: 5px; border: 1px solid #d1f2eb;}
+    .checkbox-container input { margin-right: 10px; width: 20px; height: 20px; }
+    .checkbox-container label { margin-bottom: 0; font-size: 15px; color: #0e6655; cursor: pointer;}
+    button { width: 100%; padding: 12px; background-color: #3498db; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s;}
+    button:hover { background-color: #2980b9; }
+    button:disabled { background-color: #95a5a6; cursor: not-allowed; }
+    .loader { display: none; text-align: center; margin-top: 15px; font-weight: bold; color: #3498db; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Pi任務發起區</h2>
+    <form id="taskForm">
+      <div class="row">
+        <div class="col"><label>任務發起人</label><select id="initiator"><option value="Harry" selected>Harry</option><option value="Zoe">Zoe</option><option value="Ian">Ian</option><option value="Chris">Chris</option></select></div>
+        <div class="col"><label>PIC</label><select id="pic"><option value="Harry" selected>Harry</option><option value="Zoe">Zoe</option><option value="Ian">Ian</option><option value="Chris">Chris</option></select></div>
+        <div class="col"><label>Aspect</label><select id="aspect"><option value="Accounting">Accounting</option><option value="Admin">Admin</option><option value="Human Resources">Human Resources</option><option value="Project Management" selected>Project Management</option><option value="Research & Development">Research & Development</option><option value="Sales & Marketing">Sales & Marketing</option></select></div>
+      </div>
+      <div class="row"><div class="col"><label>Project</label><input type="text" id="project" value="-"></div></div>
+      <div class="row"><div class="col"><label>Task <span style="color:red;">*</span></label><input type="text" id="task" required placeholder="請輸入任務名稱..."></div></div>
+      <div class="row">
+        <div class="col"><label>Important</label><select id="important"><option value="YES">YES</option><option value="NO" selected>NO</option></select></div>
+        <div class="col"><label>Urgent</label><select id="urgent"><option value="YES">YES</option><option value="NO" selected>NO</option></select></div>
+      </div>
+      <div class="row"><div class="col"><label>Background</label><input type="text" id="background" value="-"></div></div>
+      <div class="row"><div class="col"><label>Description</label><input type="text" id="description" value="-"></div></div>
+      <div class="row"><div class="col"><label>Key output</label><input type="text" id="keyOutput" value="-"></div></div>
+      <div class="row"><div class="col"><label>上傳相片或檔案 (選擇性)</label><input type="file" id="fileUpload"></div></div>
+      <div class="checkbox-container"><input type="checkbox" id="exportDoc"><label for="exportDoc">同時匯出獨立任務文件</label></div>
+
+      <button type="submit" id="submitBtn">傳送任務</button>
+      <div id="loader" class="loader">資料打包與上傳中，請稍候...</div>
+      <div id="successMsg" style="display:none; color: #27ae60; text-align: center; margin-top:15px; font-weight: bold;">✅ 任務發送成功！</div>
+      <div id="errMsg" style="display:none; color: #c0392b; text-align: center; margin-top:15px; font-weight: bold;">❌ 發生錯誤，請重試。</div>
+    </form>
+  </div>
+
+  <script>
+    // 已經替換為您的專屬 Google Apps Script API 網址
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxV8b3uWVko7ZdDfU5ZjVBIZczJrIUnPwRFbXfGUG3s6XfJwy_l9xvJF1MMl0lcXcI/exec"; 
+
+    document.getElementById("taskForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      
+      const btn = document.getElementById("submitBtn");
+      const loader = document.getElementById("loader");
+      const successMsg = document.getElementById("successMsg");
+      const errMsg = document.getElementById("errMsg");
+
+      btn.disabled = true;
+      loader.style.display = "block";
+      successMsg.style.display = "none";
+      errMsg.style.display = "none";
+
+      // 收集表單資料
+      const payload = {
+        action: "githubFormSubmit",
+        initiator: document.getElementById("initiator").value,
+        pic: document.getElementById("pic").value,
+        aspect: document.getElementById("aspect").value,
+        project: document.getElementById("project").value,
+        task: document.getElementById("task").value,
+        important: document.getElementById("important").value,
+        urgent: document.getElementById("urgent").value,
+        background: document.getElementById("background").value,
+        description: document.getElementById("description").value,
+        keyOutput: document.getElementById("keyOutput").value,
+        exportDoc: document.getElementById("exportDoc").checked
+      };
+
+      // 處理檔案轉換 Base64
+      const fileInput = document.getElementById("fileUpload");
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          // 擷取 Base64 字串 (移除前面的 data:image/...;base64,)
+          payload.fileBase64 = event.target.result.split(',')[1]; 
+          payload.fileName = file.name;
+          payload.fileMimeType = file.type || "application/octet-stream";
+          sendDataToGAS(payload);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // 沒有檔案，直接傳送
+        sendDataToGAS(payload);
+      }
+
+      function sendDataToGAS(data) {
+        // 設定 text/plain 避免觸發複雜的 CORS 預檢請求
+        fetch(GAS_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8",
+          },
+          body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+          if(result.status === "success") {
+            loader.style.display = "none";
+            successMsg.style.display = "block";
+            document.getElementById("taskForm").reset();
+          } else {
+            throw new Error(result.message);
+          }
+        })
+        .catch(error => {
+          console.error("Error:", error);
+          loader.style.display = "none";
+          errMsg.style.display = "block";
+          errMsg.innerText = "❌ 發送失敗：" + error.message;
+        })
+        .finally(() => {
+          btn.disabled = false;
+        });
+      }
+    });
+  </script>
+</body>
+</html>

@@ -42,20 +42,18 @@
       <div class="row"><div class="col"><label>Background</label><textarea id="background">-</textarea></div></div>
       <div class="row"><div class="col"><label>Description</label><textarea id="description">-</textarea></div></div>
       <div class="row"><div class="col"><label>Key output</label><textarea id="keyOutput">-</textarea></div></div>
-      
-      <div class="row"><div class="col"><label>上傳相片或檔案 (可選多張)</label><input type="file" id="fileUpload" multiple></div></div>
-      
+      <div class="row"><div class="col"><label>上傳相片或檔案 (多選)</label><input type="file" id="fileUpload" multiple></div></div>
       <div class="checkbox-container"><input type="checkbox" id="exportDoc"><label for="exportDoc">同時匯出獨立任務文件</label></div>
 
       <button type="submit" id="submitBtn">傳送任務</button>
-      <div id="loader" class="loader">資料打包與上傳中，請稍候...</div>
+      <div id="loader" class="loader">處理中，請稍候...</div>
       <div id="successMsg" style="display:none; color: #27ae60; text-align: center; margin-top:15px; font-weight: bold;">✅ 任務發送成功！</div>
       <div id="errMsg" style="display:none; color: #c0392b; text-align: center; margin-top:15px; font-weight: bold;">❌ 發生錯誤，請重試。</div>
     </form>
   </div>
 
   <script>
-    // 已經替換為您最新部署的 Apps Script URL
+    // ⚠️ 確保填寫最新的 Web App URL
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyPZg2063z-x_UCCQMHRGC6rv52tee1D0TM-2orLnx_026r625hpqImoP18PKircWSWNg/exec"; 
 
     document.getElementById("taskForm").addEventListener("submit", async function(e) {
@@ -83,25 +81,21 @@
         description: document.getElementById("description").value,
         keyOutput: document.getElementById("keyOutput").value,
         exportDoc: document.getElementById("exportDoc").checked,
-        files: [] // 支援多檔資料陣列
+        files: []
       };
 
       const fileInput = document.getElementById("fileUpload");
       
-      // 處理多檔案轉換
       if (fileInput.files.length > 0) {
-        loader.innerText = `正在打包 ${fileInput.files.length} 個檔案...`;
-        
+        loader.innerText = `正在處理 ${fileInput.files.length} 個檔案...`;
         const filePromises = Array.from(fileInput.files).map(file => {
           return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = (event) => {
-              resolve({
-                base64: event.target.result.split(',')[1],
-                name: file.name,
-                type: file.type || "application/octet-stream"
-              });
-            };
+            reader.onload = (event) => resolve({
+              base64: event.target.result.split(',')[1],
+              name: file.name,
+              type: file.type || "application/octet-stream"
+            });
             reader.onerror = reject;
             reader.readAsDataURL(file);
           });
@@ -109,20 +103,19 @@
 
         try {
           payload.files = await Promise.all(filePromises);
-          loader.innerText = "資料傳送中，請稍候...";
           sendDataToGAS(payload);
         } catch (error) {
           loader.style.display = "none";
           errMsg.style.display = "block";
-          errMsg.innerText = "❌ 檔案讀取失敗：" + error.message;
+          errMsg.innerText = "❌ 檔案讀取失敗";
           btn.disabled = false;
         }
       } else {
-        // 沒有檔案，直接傳送
         sendDataToGAS(payload);
       }
 
       function sendDataToGAS(data) {
+        loader.innerText = "資料上傳中...";
         fetch(GAS_API_URL, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -134,24 +127,15 @@
             loader.style.display = "none";
             successMsg.style.display = "block";
             document.getElementById("taskForm").reset();
-            document.getElementById("project").value = "NO"; // 重置 Project 預設值為 NO
+            document.getElementById("project").value = "NO";
           } else { throw new Error(result.message); }
         })
         .catch(error => {
-          console.error("Error:", error);
           loader.style.display = "none";
           errMsg.style.display = "block";
           errMsg.innerText = "❌ 發送失敗：" + error.message;
         })
-        .finally(() => { 
-          btn.disabled = false; 
-          // 幾秒後恢復按鈕狀態
-          setTimeout(() => {
-            if(successMsg.style.display === "block") {
-              loader.innerText = "資料打包與上傳中，請稍候...";
-            }
-          }, 3000);
-        });
+        .finally(() => { btn.disabled = false; });
       }
     });
   </script>
